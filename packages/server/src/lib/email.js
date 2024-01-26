@@ -120,6 +120,17 @@ function getGrantDetail(grant, emailNotificationType) {
 
     const description = grant.description.substring(0, 380).replace(/(<([^>]+)>)/ig, '');
 
+    const grantsUrl = new URL(process.env.WEBSITE_DOMAIN);
+    if (emailNotificationType === notificationType.grantDigest) {
+        grantsUrl.pathname = 'grants';
+    } else {
+        grantsUrl.pathname = 'my-grants';
+    }
+    grantsUrl.searchParams.set('utm_source', 'subscription');
+    grantsUrl.searchParams.set('utm_medium', 'email');
+    grantsUrl.searchParams.set('utm_campaign', emailNotificationType);
+    decodeURI(grantsUrl);
+
     const grantDetail = mustache.render(
         grantDetailTemplate.toString(), {
             title: grant.title,
@@ -133,7 +144,7 @@ function getGrantDetail(grant, emailNotificationType) {
             // estimated_funding: grant.estimated_funding, TODO: add once field is available in the database.
             cost_sharing: grant.cost_sharing,
             link_url: `https://www.grants.gov/web/grants/view-opportunity.html?oppId=${grant.grant_id}`,
-            grants_url: `${process.env.WEBSITE_DOMAIN}/${emailNotificationType === notificationType.grantDigest ? 'grants' : 'my-grants'}`,
+            grants_url: grantsUrl.toString(),
             view_grant_label: emailNotificationType === notificationType.grantDigest ? undefined : 'View My Grants',
         },
     );
@@ -170,6 +181,11 @@ async function sendGrantAssignedNotficationForAgency(assignee_agency, grantDetai
     const emailPlain = emailHTML.replace(/<[^>]+>/g, '');
     const emailSubject = `Grant Assigned to ${assignee_agency.name}`;
     const assginees = await db.getSubscribersForNotification(assignee_agency.id, notificationType.grantAssignment);
+
+    // Save email HTML to file
+    fileSystem.writeFileSync('./sendGrantAssignedNotficationForAgency_result.html', emailHTML);
+    // Save plaintext email to file
+    fileSystem.writeFileSync('./sendGrantAssignedNotficationForAgency_result.txt', emailPlain);
 
     const inputs = [];
     assginees.forEach((assignee) => inputs.push(
